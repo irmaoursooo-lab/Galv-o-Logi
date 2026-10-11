@@ -75,7 +75,7 @@
       <button class="capsule-icon-button" title="Tirar Foto / Ler Notas Fiscais ou Itinerário" onclick="openScanModal()">
         📸
       </button>
-      <button class="capsule-icon-button" title="Adicionar Múltiplos Endereços Manualmente" onclick="openManualAddressModal()">
+      <button class="capsule-icon-button" title="Adicionar Endereço / Parada" onclick="openManualAddressModal()">
         ✏️
       </button>
       <button class="capsule-icon-button" title="Limpar Roteiro / Novo Trajeto" onclick="clearActiveRoute()">
@@ -84,21 +84,15 @@
       <button class="capsule-icon-button" id="btn-voice-mute" title="Mutar / Ativar Voz do Guia" onclick="toggleVoiceMute()">
         🔊
       </button>
-      <button class="capsule-icon-button" id="btn-change-region" title="Alterar Região / Usar Meu GPS" onclick="openRegionModal()">
-        📍
-      </button>
       <button class="capsule-icon-button" id="btn-theme-toggle" title="Alternar Modo Escuro / Claro" onclick="toggleMapTheme()">
         🌙
       </button>
-      <button class="capsule-icon-button" title="Simular Trânsito / Reroteamento" onclick="triggerSimulatedReroute()">
-        ⚡
-      </button>
-      <button class="capsule-icon-button" title="Centralizar Caminhão" onclick="recenterMap()">
+      <button class="capsule-icon-button" title="Centralizar Caminhão / Minha Posição" onclick="recenterMap()">
         🎯
       </button>
     </div>
 
-    <!-- Banner Flutuante de Reroteamento (Zero Distração) -->
+    <!-- Banner Flutuante de Reroteamento Automático (Zero Distração) -->
     <div class="reroute-banner" id="reroute-banner" style="display: none;">
       <div class="reroute-header">
         <div class="reroute-title">
@@ -109,11 +103,30 @@
       <div class="reroute-actions">
         <button class="btn-capsule-giant btn-green" onclick="acceptReroute()">
           <span>🟢 ACEITAR</span>
-          <span class="btn-caption">(Toque ou vire à direita)</span>
+          <span class="btn-caption">(Toque para desviar)</span>
         </button>
         <button class="btn-capsule-giant btn-secondary" onclick="dismissReroute()">
           <span>⚪ MANTER</span>
           <span class="btn-caption">(Rota Atual)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pop-up de Sugestão de Alimentação (Opcional, Não Desvia sem Aceite) -->
+    <div class="meal-suggestion-card" id="hud-meal-suggestion-card" style="display: none;">
+      <div class="meal-suggestion-header">
+        <span class="meal-icon">🍽️</span>
+        <div class="meal-text-box">
+          <strong id="meal-card-title">Pausa para Refeição Recomendada</strong>
+          <span id="meal-card-desc">Restaurante seguro próximo ao trajeto</span>
+        </div>
+      </div>
+      <div class="meal-actions-row">
+        <button class="btn-capsule-small btn-green" onclick="acceptSuggestedMeal()">
+          🟢 Adicionar Parada de Refeição
+        </button>
+        <button class="btn-capsule-small btn-secondary" onclick="dismissSuggestedMeal()">
+          Ignorar
         </button>
       </div>
     </div>
@@ -304,73 +317,50 @@
       <div class="apple-modal-sheet" style="max-width: 540px; max-height: 90vh; overflow-y: auto;">
         <div class="modal-header-title">📍 Buscar Estabelecimentos & Endereços</div>
         
-        <!-- Abas de Navegação do Modal -->
-        <div class="modal-tab-bar">
-          <button id="tab-btn-search" class="modal-tab-btn active" onclick="switchAddressModalTab('search')">🔍 Busca em Tempo Real</button>
-          <button id="tab-btn-batch" class="modal-tab-btn" onclick="switchAddressModalTab('batch')">📋 Colar Lista de Endereços</button>
+        <div class="modal-subtitle" style="margin-bottom: 12px;">Digite o nome do estabelecimento ou rua com número (ex: <em>Bernardão Patos de Minas</em>, <em>Rua Padre Américo Ceppi, 806</em>):</div>
+
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="place-search-input" 
+            class="apple-input-search" 
+            placeholder="Digite endereço ou estabelecimento..." 
+            autocomplete="off" 
+            oninput="handlePlaceSearchInput(event)"
+            onkeydown="handlePlaceSearchKeydown(event)"
+          >
+          <button id="btn-clear-search" class="btn-clear-input" style="display: none;" onclick="clearPlaceSearchInput()">✕</button>
         </div>
 
-        <!-- Conteúdo Aba 1: Autocomplete em Tempo Real (Estilo Google Maps / Waze) -->
-        <div id="tab-content-search" class="modal-tab-content">
-          <div class="modal-subtitle">Digite o nome do estabelecimento ou rua (ex: <em>Bernardão Patos de Minas</em>, <em>Rua Padre Américo Ceppi</em>):</div>
-
-          <div class="search-input-wrapper">
-            <span class="search-icon">🔍</span>
-            <input 
-              type="text" 
-              id="place-search-input" 
-              class="apple-input-search" 
-              placeholder="Digite o local ou estabelecimento..." 
-              autocomplete="off" 
-              oninput="handlePlaceSearchInput(event)"
-              onkeydown="handlePlaceSearchKeydown(event)"
-            >
-            <button id="btn-clear-search" class="btn-clear-input" style="display: none;" onclick="clearPlaceSearchInput()">✕</button>
-          </div>
-
-          <!-- Indicador de busca ao vivo -->
-          <div id="place-search-spinner" style="display: none; text-align: center; color: var(--color-system-green); font-size: 13px; font-weight: 600; padding: 10px;">
-            ⏳ Buscando no mapa em tempo real...
-          </div>
-
-          <!-- Lista de Sugestões em Tempo Real -->
-          <div id="place-suggestions-list" class="place-suggestions-container" style="display: none;"></div>
-
-          <!-- Cartão de Local Selecionado -->
-          <div id="selected-place-card" class="selected-place-preview" style="display: none;">
-            <div class="selected-place-header">
-              <span class="selected-place-icon" id="preview-place-icon">📍</span>
-              <div class="selected-place-info">
-                <strong id="preview-place-name">Nome do Local</strong>
-                <small id="preview-place-address">Endereço completo</small>
-              </div>
-            </div>
-            
-            <div class="selected-place-actions">
-              <button class="btn-capsule-small btn-green" onclick="confirmAddSelectedStop()">
-                ➕ Adicionar ao Itinerário
-              </button>
-              <button class="btn-capsule-small btn-secondary" onclick="confirmSetSelectedStart()">
-                🏠 Definir como Ponto de Partida
-              </button>
-              <button class="btn-capsule-small btn-secondary" onclick="confirmStartNewRouteHere()">
-                🚀 Iniciar Nova Rota Aqui
-              </button>
-            </div>
-          </div>
+        <!-- Indicador de busca ao vivo -->
+        <div id="place-search-spinner" style="display: none; text-align: center; color: var(--color-system-green); font-size: 13px; font-weight: 600; padding: 10px;">
+          ⏳ Buscando no mapa em tempo real...
         </div>
 
-        <!-- Conteúdo Aba 2: Colar Múltiplos Endereços em Linhas -->
-        <div id="tab-content-batch" class="modal-tab-content" style="display: none;">
-          <div class="modal-subtitle">Cole ou digite um endereço ou estabelecimento por linha:</div>
-          <textarea id="manual-addresses-textarea" class="apple-textarea" rows="6" placeholder="Exemplos:&#10;Hipermercado Bernardão, Patos de Minas&#10;Rua Padre Américo Ceppi, Uberlândia&#10;Mercado Central de BH&#10;Ceasa Minas Pavilhão 5, Contagem"></textarea>
+        <!-- Lista de Sugestões em Tempo Real -->
+        <div id="place-suggestions-list" class="place-suggestions-container" style="display: none;"></div>
+
+        <!-- Cartão de Local Selecionado -->
+        <div id="selected-place-card" class="selected-place-preview" style="display: none;">
+          <div class="selected-place-header">
+            <span class="selected-place-icon" id="preview-place-icon">📍</span>
+            <div class="selected-place-info">
+              <strong id="preview-place-name">Nome do Local</strong>
+              <small id="preview-place-address">Endereço completo</small>
+            </div>
+          </div>
           
-          <div id="manual-loading-indicator" style="display: none; text-align: center; color: var(--color-system-green); font-weight: 600; padding: 8px;">
-            🔍 Localizando estabelecimentos na malha viária...
-          </div>
-
-          <div class="modal-actions" style="margin-top: 12px;">
-            <button class="btn-capsule-giant btn-green" onclick="submitManualAddresses()">🚀 Traçar Rota com Todos</button>
+          <div class="selected-place-actions">
+            <button class="btn-capsule-small btn-green" onclick="confirmAddSelectedStop()">
+              ➕ Adicionar ao Itinerário
+            </button>
+            <button class="btn-capsule-small btn-secondary" onclick="confirmSetSelectedStart()">
+              🏠 Definir como Ponto de Partida
+            </button>
+            <button class="btn-capsule-small btn-secondary" onclick="confirmStartNewRouteHere()">
+              🚀 Iniciar Nova Rota Aqui
+            </button>
           </div>
         </div>
 

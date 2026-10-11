@@ -129,6 +129,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   showIdleCockpitState();
 });
 
+function getCurrentDeviceTimeStr() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
 function showIdleCockpitState() {
   if (typeof stopNavigation === 'function') {
     stopNavigation();
@@ -138,7 +143,16 @@ function showIdleCockpitState() {
   const hudBar = document.getElementById('navigation-hud-bar');
   if (hudBar) hudBar.style.display = 'none';
 
+  currentDestinations = [];
   currentRouteData = null;
+  activeRerouteData = null;
+  pendingSuggestedMeal = null;
+
+  const mealCard = document.getElementById('hud-meal-suggestion-card');
+  if (mealCard) mealCard.style.display = 'none';
+  const rerouteBanner = document.getElementById('reroute-banner');
+  if (rerouteBanner) rerouteBanner.style.display = 'none';
+
   if (window.mapEngine) {
     window.mapEngine.clearLayers();
   }
@@ -162,6 +176,10 @@ function showIdleCockpitState() {
 
 function clearActiveRoute() {
   window.voiceCopilot.vibrate(50);
+  currentDestinations = [];
+  currentRouteData = null;
+  activeRerouteData = null;
+  pendingSuggestedMeal = null;
   localStorage.removeItem('galvao_custom_route');
   localStorage.removeItem('galvao_selected_region');
   showIdleCockpitState();
@@ -508,13 +526,15 @@ function renderPlaceSuggestions(places) {
     }
 
     item.innerHTML = `
-      <span class="place-suggestion-icon">${icon}</span>
-      <div class="place-suggestion-content">
-        <div class="place-suggestion-title">
-          <span>${p.name}</span>
-          <span class="place-badge">${badgeText}</span>
+      <div class="place-suggestion-header-row">
+        <span class="place-suggestion-icon">${icon}</span>
+        <div class="place-suggestion-content">
+          <div class="place-suggestion-title">
+            <span>${p.name}</span>
+            <span class="place-badge">${badgeText}</span>
+          </div>
+          <div class="place-suggestion-sub">${p.address}</div>
         </div>
-        <div class="place-suggestion-sub">${p.address}</div>
       </div>
       <div class="place-suggestion-quick-actions">
         ${quickActionHtml}
@@ -840,9 +860,9 @@ async function calculateAndApplyRoute(destinations, preserveOrder = false) {
     start_latitude: window.currentDriverLat,
     start_longitude: window.currentDriverLon,
     start_address: window.currentDriverAddress,
-    departure_time: "07:30",
+    departure_time: getCurrentDeviceTimeStr(),
     destinations: currentDestinations,
-    enable_meal_breaks: true,
+    enable_meal_breaks: false,
     preserve_order: preserveOrder
   };
 
@@ -963,8 +983,55 @@ function renderCockpitData(route) {
     btnStart.innerHTML = '<span>▶ Iniciar Navegação</span>';
   }
 
+  // Sugestão opcional de refeição: exibida apenas como sugestão sem desviar a rota
+  if (route.suggested_meal && !route.itinerary.some(s => s.stop_type === 'MEAL_BREAK')) {
+    pendingSuggestedMeal = route.suggested_meal;
+    const mealCard = document.getElementById('hud-meal-suggestion-card');
+    if (mealCard) {
+      const titleEl = document.getElementById('meal-card-title');
+      const descEl = document.getElementById('meal-card-desc');
+      if (titleEl) titleEl.textContent = `🍽️ ${route.suggested_meal.name} (${route.suggested_meal.rating} ★)`;
+      if (descEl) descEl.textContent = `${route.suggested_meal.meal_type} • Previsão: ${route.suggested_meal.arrival_time} • Pátio seguro para caminhões`;
+      mealCard.style.display = 'flex';
+    }
+  } else {
+    pendingSuggestedMeal = null;
+    const mealCard = document.getElementById('hud-meal-suggestion-card');
+    if (mealCard) mealCard.style.display = 'none';
+  }
+
   // Atualizar gaveta
   renderItineraryDrawer(route.itinerary);
+}
+
+function acceptSuggestedMeal() {
+  window.voiceCopilot.vibrate(50);
+  if (!pendingSuggestedMeal) return;
+
+  const mealStop = {
+    name: pendingSuggestedMeal.name,
+    address: pendingSuggestedMeal.address,
+    latitude: pendingSuggestedMeal.latitude,
+    longitude: pendingSuggestedMeal.longitude,
+    service_time_minutes: pendingSuggestedMeal.duration_minutes || 45
+  };
+
+  currentDestinations.push(mealStop);
+  const mealCard = document.getElementById('hud-meal-suggestion-card');
+  if (mealCard) mealCard.style.display = 'none';
+  pendingSuggestedMeal = null;
+
+  calculateAndApplyRoute(currentDestinations, false);
+  showToast('🍽️ Parada de refeição adicionada ao roteiro!');
+  window.voiceCopilot.speak('Parada de refeição adicionada ao roteiro. Recalculando melhor trajeto.');
+}
+
+function dismissSuggestedMeal() {
+  window.voiceCopilot.vibrate(20);
+  const mealCard = document.getElementById('hud-meal-suggestion-card');
+  if (mealCard) mealCard.style.display = 'none';
+  pendingSuggestedMeal = null;
+  showToast('Sugestão de refeição ignorada. Rota mantida.');
 }
 
 function renderItineraryDrawer(stops) {
@@ -1576,12 +1643,14 @@ function startNavigation() {
     }
   }
 
-  // Iniciar laço de animação / simulação suave ao vivo
-  if (navigationState.animationTimer) clearInterval(navigationState.animationTimer);
-  navigationState.animationTimer = setInterval(stepNavigationSimulation, 120);
+  // Navegação ao vivo estritamente orientada ao GPS Real (o caminhão fica parado se o telefone estiver parado)
+  if (navigationState.animationTimer) {
+    clearInterval(navigationState.animationTimer);
+    navigationState.animationTimer = null;
+  }
 
-  showToast(`🚀 Navegação iniciada em direção a "${firstDestName}"!`);
-  window.voiceCopilot.speak(`Iniciando navegação ao vivo. Siga em frente na rota em direção a ${firstDestName}.`);
+  showToast(`🚀 Navegação ao vivo iniciada via GPS em direção a "${firstDestName}"!`);
+  window.voiceCopilot.speak(`Iniciando navegação ao vivo guiada por GPS. Siga em direção a ${firstDestName}.`);
 }
 
 function onPhysicalGpsUpdate(gpsLat, gpsLon, gpsHeading) {
@@ -1594,7 +1663,7 @@ function onPhysicalGpsUpdate(gpsLat, gpsLon, gpsHeading) {
   let minDistance = Infinity;
   let closestIndex = navigationState.currentIndex;
 
-  for (let i = navigationState.currentIndex; i < Math.min(coords.length, navigationState.currentIndex + 40); i++) {
+  for (let i = 0; i < coords.length; i++) {
     const d = haversineMeters(gpsLat, gpsLon, coords[i][0], coords[i][1]);
     if (d < minDistance) {
       minDistance = d;
@@ -1602,24 +1671,33 @@ function onPhysicalGpsUpdate(gpsLat, gpsLon, gpsHeading) {
     }
   }
 
-  // Se o GPS físico está perto da rota (< 100m) e avançou
-  if (minDistance < 100 && closestIndex > navigationState.currentIndex) {
-    navigationState.currentIndex = closestIndex;
-    navigationState.segmentOffsetMeters = 0;
-    
-    // Recalcular distância percorrida
-    let cov = 0;
-    for (let j = 0; j < closestIndex; j++) {
-      cov += haversineMeters(coords[j][0], coords[j][1], coords[j+1][0], coords[j+1][1]);
-    }
-    navigationState.coveredDistanceMeters = cov;
+  // Atualizar índice atual acompanhando o deslocamento físico do aparelho
+  navigationState.currentIndex = closestIndex;
+  
+  // Recalcular distância percorrida até a posição atual
+  let cov = 0;
+  for (let j = 0; j < closestIndex; j++) {
+    cov += haversineMeters(coords[j][0], coords[j][1], coords[j+1][0], coords[j+1][1]);
+  }
+  navigationState.coveredDistanceMeters = cov;
 
-    const nextCoord = coords[Math.min(coords.length - 1, closestIndex + 1)];
-    const bearing = gpsHeading || calculateBearing(gpsLat, gpsLon, nextCoord[0], nextCoord[1]);
-    if (window.mapEngine) {
-      window.mapEngine.updateTruckNavigation(gpsLat, gpsLon, bearing, navigationState.followCamera);
-    }
-    updateNavigationProgressUI();
+  const nextCoord = coords[Math.min(coords.length - 1, closestIndex + 1)];
+  const bearing = (gpsHeading !== null && !isNaN(gpsHeading) && gpsHeading !== undefined && gpsHeading !== 0)
+    ? gpsHeading
+    : calculateBearing(gpsLat, gpsLon, nextCoord[0], nextCoord[1]);
+
+  // Se o caminhão está dentro da malha viária (< 40m), projeta suavemente no eixo da rua
+  const renderLat = (minDistance < 40) ? coords[closestIndex][0] : gpsLat;
+  const renderLon = (minDistance < 40) ? coords[closestIndex][1] : gpsLon;
+
+  if (window.mapEngine) {
+    window.mapEngine.updateTruckNavigation(renderLat, renderLon, bearing, navigationState.followCamera);
+  }
+  updateNavigationProgressUI();
+  checkStopProximity(renderLat, renderLon);
+
+  if (closestIndex >= coords.length - 1) {
+    completeNavigationArrival();
   }
 }
 

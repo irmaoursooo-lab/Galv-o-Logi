@@ -90,6 +90,7 @@ class SupervisorOrchestratorAgent:
         cumulative_delay_minutes = 0
         last_stop_dep_min = None
         start_dep_min = None
+        suggested_meal_info: Optional[Dict[str, Any]] = None
 
         for idx, entry in enumerate(timeline):
             node_idx = entry["node_index"]
@@ -100,7 +101,7 @@ class SupervisorOrchestratorAgent:
                 arrival_str = self._minutes_to_hhmm(entry["arrival_minute"])
                 depart_str = self._minutes_to_hhmm(entry["departure_minute"])
                 itinerary.append(ItineraryStop(
-                    step_number=step_counter,
+                    step_number=0,
                     stop_type=StopType.START,
                     destination_id=None,
                     name=entry["name"],
@@ -114,7 +115,6 @@ class SupervisorOrchestratorAgent:
                     travel_time_from_previous_minutes=0,
                     notes="Início da Jornada"
                 ))
-                step_counter += 1
                 continue
 
             # Horário de chegada ajustado acumulando eventuais pausas anteriores
@@ -122,17 +122,16 @@ class SupervisorOrchestratorAgent:
             current_arrival_str = self._minutes_to_hhmm(current_arrival_min)
 
             # Verificar se cabe pausa para refeição antes desta parada
-            if request.enable_meal_breaks:
-                meal_break = self.wellness.should_insert_break(current_arrival_str, planned_meals)
-                if meal_break:
-                    meal_type = meal_break["meal"]
-                    restaurant = self.wellness.recommend_restaurant(meal_type)
-                    rest_name = restaurant["name"] if restaurant else f"Pausa para {meal_type}"
-                    rest_addr = restaurant["address"] if restaurant else "Restaurante com pátio para caminhões"
+            meal_break = self.wellness.should_insert_break(current_arrival_str, planned_meals)
+            if meal_break:
+                meal_type = meal_break["meal"]
+                restaurant = self.wellness.recommend_restaurant(meal_type)
+                rest_name = restaurant["name"] if restaurant else f"Pausa para {meal_type}"
+                rest_addr = restaurant["address"] if restaurant else "Restaurante com pátio para caminhões"
+                break_duration = meal_break["duration_minutes"]
 
-                    break_duration = meal_break["duration_minutes"]
+                if request.enable_meal_breaks:
                     detour_travel_min = 2 # minutos de aproximação ao restaurante
-
                     meal_arrival_min = current_arrival_min
                     meal_departure_min = meal_arrival_min + break_duration
 
@@ -153,11 +152,23 @@ class SupervisorOrchestratorAgent:
                         notes=f"Recomendado: Nota {restaurant['rating'] if restaurant else '4.5'} ★ (Estacionamento Seguro)"
                     ))
                     planned_meals.append(meal_type)
-                    # Refeições não consomem step_counter (step_counter é exclusivo para entregas)
 
                     # Deslocar a linha do tempo das próximas paradas pelo tempo da refeição e deslocamento
                     cumulative_delay_minutes += break_duration + detour_travel_min
                     current_arrival_min = entry["arrival_minute"] + cumulative_delay_minutes
+                else:
+                    # Sugestão opcional sem alterar nem desviar a rota
+                    if not suggested_meal_info:
+                        suggested_meal_info = {
+                            "meal_type": meal_type,
+                            "name": rest_name,
+                            "address": rest_addr,
+                            "rating": restaurant.get("rating", 4.5) if restaurant else 4.5,
+                            "latitude": entry["latitude"] - 0.005,
+                            "longitude": entry["longitude"] - 0.005,
+                            "arrival_time": current_arrival_str,
+                            "duration_minutes": break_duration
+                        }
 
             # Adicionar a entrega com horários ajustados
             serv_duration = entry["service_duration_minutes"]
@@ -233,5 +244,6 @@ class SupervisorOrchestratorAgent:
             anti_idle_saved_minutes=solved.get("anti_idle_saved_minutes", 0),
             chronic_docks_prioritized=solved.get("chronic_prioritized_count", 0),
             road_geometry=road_geom,
-            is_road_network=is_road_net
+            is_road_network=is_road_net,
+            suggested_meal=suggested_meal_info
         )

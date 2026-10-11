@@ -81,6 +81,18 @@ class PlaceSuggestion(BaseModel):
     longitude: float
     type: Optional[str] = "establishment"
 
+from datetime import datetime
+try:
+    import zoneinfo
+    BRASILIA_TZ = zoneinfo.ZoneInfo("America/Sao_Paulo")
+except Exception:
+    BRASILIA_TZ = None
+
+def get_current_brasilia_time_str() -> str:
+    if BRASILIA_TZ:
+        return datetime.now(BRASILIA_TZ).strftime("%H:%M")
+    return datetime.now().strftime("%H:%M")
+
 class RouteRequest(BaseModel):
     driver_id: str
     truck_id: Optional[str] = None
@@ -88,7 +100,7 @@ class RouteRequest(BaseModel):
     start_latitude: float
     start_longitude: float
     start_address: str = "Garagem / Centro de Distribuição"
-    departure_time: str = "07:30" # HH:MM
+    departure_time: str = Field(default_factory=get_current_brasilia_time_str, description="Horário de partida no formato HH:MM (padrão: hora atual de Brasília)")
     destinations: List[WaypointInput]
     enable_meal_breaks: bool = True
     preserve_order: bool = False
@@ -129,6 +141,7 @@ class RouteResponse(BaseModel):
     chronic_docks_prioritized: int = 0
     road_geometry: Optional[List[List[float]]] = None
     is_road_network: bool = True
+    suggested_meal: Optional[Dict[str, Any]] = None  # Sugestão opcional de refeição exibida ao motorista
 
 class OcrScanResult(BaseModel):
     destinations: List[WaypointInput]
