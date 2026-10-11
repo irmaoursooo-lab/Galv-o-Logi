@@ -1,0 +1,10 @@
+{
+  "name": "Galvão Logi — Cockpit",
+  "short_name": "Galvão Logi",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#0A0A0C",
+  "theme_color": "#0A0A0C",
+  "orientation": "landscape",
+  "description": "Cockpit Colaborativo Inteligente de Navegação de Cargas com Arquitetura Offline-First"
+}

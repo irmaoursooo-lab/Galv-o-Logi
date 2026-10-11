@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Galvão Logi — Cockpit de Navegação Inteligente</title>
+  
+  <!-- Estilos e Fontes Apple Cupertino -->
+  <link rel="stylesheet" href="/static/css/apple_cockpit.css">
+  
+  <!-- Leaflet CSS para Mapas Vetoriais Limpos -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div id="app-viewport">
+    <!-- Toast HUD de Feedback Rápido (Zero Distração) -->
+    <div id="cockpit-toast" class="cockpit-toast">Notificação</div>
+
+    <!-- Mapa de Fundo -->
+    <div id="map-container"></div>
+
+    <!-- Barra Superior: Ilha de Navegação Apple HUD -->
+    <div class="cockpit-top-island">
+      <div class="cockpit-card-top">
+        <div class="status-dot-green"></div>
+        <div class="next-stop-info">
+          <div class="next-stop-title" id="hud-next-stop">1. Mercado Central Doca Sul</div>
+          <div class="next-stop-address" id="hud-next-address">Av. das Amoras, 420 • Doca 14 (Priorizada)</div>
+        </div>
+        <div class="next-stop-eta">
+          <div class="eta-time" id="hud-eta">08:15</div>
+          <div class="eta-label">Chegada Prevista</div>
+        </div>
+      </div>
+
+      <!-- Indicador de Rede / Fila Offline Outbox -->
+      <div class="connection-pill" id="network-pill" onclick="toggleNetworkSimulation()">
+        <div class="indicator-dot" id="network-dot"></div>
+        <span id="network-label">4G Conectado (Outbox: 0)</span>
+      </div>
+    </div>
+
+    <!-- Card de Boas-Vindas / Cockpit sem Rota Forçada -->
+    <div class="cockpit-welcome-card" id="cockpit-welcome-card" style="display: none;">
+      <div class="welcome-header">
+        <span class="welcome-icon">🚛</span>
+        <div>
+          <h2 class="welcome-title">Cockpit de Navegação</h2>
+          <p class="welcome-subtitle">O app só traça rotas que você adicionar. Escolha como enviar seus destinos:</p>
+        </div>
+      </div>
+      <div class="welcome-actions">
+        <button class="btn-capsule-giant btn-green" onclick="openScanModal()">
+          <span>📸 Tirar Foto de Notas Fiscais / Itinerário</span>
+          <span class="btn-caption">(Lê destinos e purga dados confidenciais LGPD)</span>
+        </button>
+        <button class="btn-capsule-giant btn-secondary" onclick="openManualAddressModal()">
+          <span>✏️ Adicionar Múltiplos Endereços</span>
+          <span class="btn-caption">(Digite ou cole vários locais de entrega)</span>
+        </button>
+      </div>
+      <div class="welcome-footer">
+        <button class="btn-link" onclick="loadSampleDemo()">Ou carregar demonstração de exemplo</button>
+      </div>
+    </div>
+
+    <!-- Controles Rápidos Flutuantes -->
+    <div class="cockpit-side-panel">
+      <button class="capsule-icon-button" title="Itinerário Completo" onclick="toggleDrawer()">
+        📋
+      </button>
+      <button class="capsule-icon-button" title="Tirar Foto / Ler Notas Fiscais ou Itinerário" onclick="openScanModal()">
+        📸
+      </button>
+      <button class="capsule-icon-button" title="Adicionar Múltiplos Endereços Manualmente" onclick="openManualAddressModal()">
+        ✏️
+      </button>
+      <button class="capsule-icon-button" title="Limpar Roteiro / Novo Trajeto" onclick="clearActiveRoute()">
+        🗑️
+      </button>
+      <button class="capsule-icon-button" id="btn-voice-mute" title="Mutar / Ativar Voz do Guia" onclick="toggleVoiceMute()">
+        🔊
+      </button>
+      <button class="capsule-icon-button" id="btn-change-region" title="Alterar Região / Usar Meu GPS" onclick="openRegionModal()">
+        📍
+      </button>
+      <button class="capsule-icon-button" id="btn-theme-toggle" title="Alternar Modo Escuro / Claro" onclick="toggleMapTheme()">
+        🌙
+      </button>
+      <button class="capsule-icon-button" title="Simular Trânsito / Reroteamento" onclick="triggerSimulatedReroute()">
+        ⚡
+      </button>
+      <button class="capsule-icon-button" title="Centralizar Caminhão" onclick="recenterMap()">
+        🎯
+      </button>
+    </div>
+
+    <!-- Banner Flutuante de Reroteamento (Zero Distração) -->
+    <div class="reroute-banner" id="reroute-banner" style="display: none;">
+      <div class="reroute-header">
+        <div class="reroute-title">
+          <span>🚗🚗 Trânsito Lento à Frente</span>
+        </div>
+        <div class="time-saved-badge" id="banner-saved-time">⚡ -8 MIN</div>
+      </div>
+      <div class="reroute-actions">
+        <button class="btn-capsule-giant btn-green" onclick="acceptReroute()">
+          <span>🟢 ACEITAR</span>
+          <span class="btn-caption">(Toque ou vire à direita)</span>
+        </button>
+        <button class="btn-capsule-giant btn-secondary" onclick="dismissReroute()">
+          <span>⚪ MANTER</span>
+          <span class="btn-caption">(Rota Atual)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- HUD de Navegação Ativa em Tempo Real Apple Cockpit (Progress Bar & Controles) -->
+    <div class="navigation-hud-bar" id="navigation-hud-bar" style="display: none;">
+      <div class="nav-hud-top-row">
+        <div class="nav-status-indicator">
+          <span class="nav-pulse-dot" id="nav-pulse-dot"></span>
+          <span id="nav-status-text">Navegação em Tempo Real</span>
+        </div>
+        <div class="nav-eta-badge" id="nav-eta-badge">
+          <span id="nav-eta-time">--:--</span>
+          <span id="nav-eta-remaining">(-- min restantes)</span>
+        </div>
+      </div>
+
+      <!-- Barra de Progresso Cupertino -->
+      <div class="nav-progress-container">
+        <div class="nav-progress-track">
+          <div class="nav-progress-fill" id="nav-progress-fill" style="width: 0%;"></div>
+        </div>
+        <div class="nav-progress-meta">
+          <span id="nav-progress-percent">0% concluído</span>
+          <span id="nav-progress-distance">0.0 km de 0.0 km</span>
+        </div>
+      </div>
+
+      <!-- Controles Rápidos da Navegação -->
+      <div class="nav-controls-cluster">
+        <button class="btn-nav-control btn-nav-pause" id="btn-nav-pause" onclick="togglePauseNavigation()">
+          ⏸️ Pausar
+        </button>
+        <button class="btn-nav-control btn-nav-stop" onclick="stopNavigation()">
+          ⏹️ Encerrar
+        </button>
+        <button class="btn-nav-control btn-nav-speed" id="btn-nav-speed" onclick="cycleSimulationSpeed()" title="Velocidade da Simulação">
+          ⚡ 1x
+        </button>
+        <button class="btn-nav-control btn-nav-recenter" onclick="recenterTruckNavigation()" title="Centralizar no Caminhão">
+          🎯 Seguir
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra Inferior do Cockpit -->
+    <div class="cockpit-bottom-bar">
+      <div class="cockpit-summary-card">
+        <div class="summary-metric">
+          <span class="metric-number" id="metric-stops">4</span>
+          <span class="metric-label">Paradas</span>
+        </div>
+        <div class="summary-metric">
+          <span class="metric-number" id="metric-distance">48.2 km</span>
+          <span class="metric-label">Distância</span>
+        </div>
+        <div class="summary-metric">
+          <span class="metric-number" id="metric-finish">14:20</span>
+          <span class="metric-label">Término Previsto</span>
+        </div>
+      </div>
+
+      <div class="quick-action-cluster">
+        <button class="btn-start-navigation" id="btn-start-navigation" onclick="startNavigation()" title="Iniciar Navegação em Tempo Real">
+          <span>▶ Iniciar Navegação</span>
+        </button>
+        <button class="btn-report-slow" onclick="openSlowDockModal()">
+          <span>⏱️ Reportar Doca Lenta</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal de 2 Toques: Recebimento Lento -->
+    <div class="apple-modal-overlay" id="slow-modal">
+      <div class="apple-modal-sheet">
+        <div class="modal-header-title">⏱️ Recebimento Lento</div>
+        <div class="modal-subtitle">Toque no tempo aproximado de espera excedente na doca atual:</div>
+        
+        <div class="delay-picker-grid">
+          <button class="btn-delay-choice" onclick="selectDelay(30)">+30 min</button>
+          <button class="btn-delay-choice selected" onclick="selectDelay(60)">+60 min</button>
+          <button class="btn-delay-choice" onclick="selectDelay(90)">+90 min</button>
+          <button class="btn-delay-choice" onclick="selectDelay(120)">+2 horas</button>
+          <button class="btn-delay-choice" onclick="selectDelay(180)">+3 horas</button>
+          <button class="btn-delay-choice" onclick="selectDelay(240)">+4 horas</button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-capsule-giant btn-secondary" onclick="closeSlowDockModal()">Cancelar</button>
+          <button class="btn-capsule-giant btn-green" onclick="confirmSlowDockReport()">Confirmar (Toque 2)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Seleção de Região / Meu GPS -->
+    <div class="apple-modal-overlay" id="region-modal" style="display: none;">
+      <div class="apple-modal-sheet">
+        <div class="modal-header-title">📍 Minha Região e Rota</div>
+        <div class="modal-subtitle">Escolha onde o caminhão está operando ou use seu GPS atual:</div>
+        
+        <div class="region-picker-list">
+          <button class="btn-region-choice" onclick="selectRegion('GPS')">
+            <span class="region-icon">📡</span>
+            <div class="region-text">
+              <strong>Usar Meu GPS Real</strong>
+              <small>Localiza automaticamente pelo seu dispositivo</small>
+            </div>
+          </button>
+          <button class="btn-region-choice" onclick="selectRegion('RJ')">
+            <span class="region-icon">🏖️</span>
+            <div class="region-text">
+              <strong>Rio de Janeiro & Região Metropolitana</strong>
+              <small>Porto do Rio, Galeão, Pavuna, Duque de Caxias</small>
+            </div>
+          </button>
+          <button class="btn-region-choice" onclick="selectRegion('MG')">
+            <span class="region-icon">☕</span>
+            <div class="region-text">
+              <strong>Belo Horizonte & Contagem</strong>
+              <small>Ceasa Minas, Distrito Industrial, Anel Rodoviário</small>
+            </div>
+          </button>
+          <button class="btn-region-choice" onclick="selectRegion('PR')">
+            <span class="region-icon">🌲</span>
+            <div class="region-text">
+              <strong>Curitiba & Polo Logístico</strong>
+              <small>Cidade Industrial (CIC), Araucária, Pinhais</small>
+            </div>
+          </button>
+          <button class="btn-region-choice" onclick="selectRegion('RS')">
+            <span class="region-icon">🥩</span>
+            <div class="region-text">
+              <strong>Porto Alegre & Vale dos Sinos</strong>
+              <small>Porto Seco, Canoas, Novo Hamburgo</small>
+            </div>
+          </button>
+          <button class="btn-region-choice" onclick="selectRegion('SP')">
+            <span class="region-icon">🏙️</span>
+            <div class="region-text">
+              <strong>São Paulo & Grande SP</strong>
+              <small>Mercado Central, Anhanguera, Mooca, Tamboré</small>
+            </div>
+          </button>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 20px;">
+          <button class="btn-capsule-giant btn-secondary" onclick="closeRegionModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Tirar Foto / Ler Notas Fiscais ou Itinerário -->
+    <div class="apple-modal-overlay" id="scan-modal" style="display: none;">
+      <div class="apple-modal-sheet" style="max-width: 520px;">
+        <div class="modal-header-title">📸 Ler Notas Fiscais ou Itinerário</div>
+        <div class="modal-subtitle">Tire foto ou anexe uma ou mais notas fiscais (DANFE / NF-e) ou romaneios:</div>
+        
+        <div class="privacy-notice-badge">
+          🔒 <strong>Proteção e Sigilo Fiscal (LGPD):</strong> Os dados fiscais como CPF, CNPJ, valores, preços e itens são lidos em memória e purgados imediatamente. Nenhuma foto ou dado confidencial é armazenado.
+        </div>
+
+        <input type="file" id="invoice-file-input" accept="image/*" multiple capture="environment" style="display: none;" onchange="handleInvoicesUpload(event)">
+        
+        <div class="upload-trigger-area" onclick="document.getElementById('invoice-file-input').click()">
+          <span style="font-size: 36px;">📷</span>
+          <strong>Toque para Tirar Foto ou Anexar Imagens</strong>
+          <small>Suporta fotos da câmera, arquivos e romaneios múltiplos</small>
+        </div>
+
+        <div id="scan-loading-indicator" style="display: none; text-align: center; color: var(--color-system-green); font-weight: 600; padding: 12px;">
+          ⏳ Lendo documentos e purificando dados sensíveis...
+        </div>
+
+        <div id="scanned-destinations-list" class="scanned-destinations-container" style="display: none;">
+          <div style="font-size: 13px; font-weight: 700; color: #86868B; margin-bottom: 8px;">Destinos de Entrega Identificados:</div>
+          <div id="scanned-items-box"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-capsule-giant btn-secondary" onclick="closeScanModal()">Cancelar</button>
+          <button id="btn-confirm-scanned" class="btn-capsule-giant btn-green" style="display: none;" onclick="confirmScannedDestinations()">🚀 Traçar Rota pelas Ruas</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Adicionar e Buscar Endereços com Autocomplete em Tempo Real -->
+    <div class="apple-modal-overlay" id="manual-address-modal" style="display: none;">
+      <div class="apple-modal-sheet" style="max-width: 540px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header-title">📍 Buscar Estabelecimentos & Endereços</div>
+        
+        <!-- Abas de Navegação do Modal -->
+        <div class="modal-tab-bar">
+          <button id="tab-btn-search" class="modal-tab-btn active" onclick="switchAddressModalTab('search')">🔍 Busca em Tempo Real</button>
+          <button id="tab-btn-batch" class="modal-tab-btn" onclick="switchAddressModalTab('batch')">📋 Colar Lista de Endereços</button>
+        </div>
+
+        <!-- Conteúdo Aba 1: Autocomplete em Tempo Real (Estilo Google Maps / Waze) -->
+        <div id="tab-content-search" class="modal-tab-content">
+          <div class="modal-subtitle">Digite o nome do estabelecimento ou rua (ex: <em>Bernardão Patos de Minas</em>, <em>Rua Padre Américo Ceppi</em>):</div>
+
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input 
+              type="text" 
+              id="place-search-input" 
+              class="apple-input-search" 
+              placeholder="Digite o local ou estabelecimento..." 
+              autocomplete="off" 
+              oninput="handlePlaceSearchInput(event)"
+              onkeydown="handlePlaceSearchKeydown(event)"
+            >
+            <button id="btn-clear-search" class="btn-clear-input" style="display: none;" onclick="clearPlaceSearchInput()">✕</button>
+          </div>
+
+          <!-- Indicador de busca ao vivo -->
+          <div id="place-search-spinner" style="display: none; text-align: center; color: var(--color-system-green); font-size: 13px; font-weight: 600; padding: 10px;">
+            ⏳ Buscando no mapa em tempo real...
+          </div>
+
+          <!-- Lista de Sugestões em Tempo Real -->
+          <div id="place-suggestions-list" class="place-suggestions-container" style="display: none;"></div>
+
+          <!-- Cartão de Local Selecionado -->
+          <div id="selected-place-card" class="selected-place-preview" style="display: none;">
+            <div class="selected-place-header">
+              <span class="selected-place-icon" id="preview-place-icon">📍</span>
+              <div class="selected-place-info">
+                <strong id="preview-place-name">Nome do Local</strong>
+                <small id="preview-place-address">Endereço completo</small>
+              </div>
+            </div>
+            
+            <div class="selected-place-actions">
+              <button class="btn-capsule-small btn-green" onclick="confirmAddSelectedStop()">
+                ➕ Adicionar ao Itinerário
+              </button>
+              <button class="btn-capsule-small btn-secondary" onclick="confirmSetSelectedStart()">
+                🏠 Definir como Ponto de Partida
+              </button>
+              <button class="btn-capsule-small btn-secondary" onclick="confirmStartNewRouteHere()">
+                🚀 Iniciar Nova Rota Aqui
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conteúdo Aba 2: Colar Múltiplos Endereços em Linhas -->
+        <div id="tab-content-batch" class="modal-tab-content" style="display: none;">
+          <div class="modal-subtitle">Cole ou digite um endereço ou estabelecimento por linha:</div>
+          <textarea id="manual-addresses-textarea" class="apple-textarea" rows="6" placeholder="Exemplos:&#10;Hipermercado Bernardão, Patos de Minas&#10;Rua Padre Américo Ceppi, Uberlândia&#10;Mercado Central de BH&#10;Ceasa Minas Pavilhão 5, Contagem"></textarea>
+          
+          <div id="manual-loading-indicator" style="display: none; text-align: center; color: var(--color-system-green); font-weight: 600; padding: 8px;">
+            🔍 Localizando estabelecimentos na malha viária...
+          </div>
+
+          <div class="modal-actions" style="margin-top: 12px;">
+            <button class="btn-capsule-giant btn-green" onclick="submitManualAddresses()">🚀 Traçar Rota com Todos</button>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 14px;">
+          <button class="btn-capsule-giant btn-secondary" onclick="closeManualAddressModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Edição de Parada -->
+    <div class="apple-modal-overlay" id="edit-stop-modal" style="display: none;">
+      <div class="apple-modal-sheet" style="max-width: 440px;">
+        <div class="modal-header-title">✏️ Editar Parada</div>
+        <div class="modal-subtitle">Atualize os detalhes do local ou o tempo de serviço:</div>
+
+        <div class="edit-stop-fields">
+          <label class="edit-field-label">Identificação / Nome:</label>
+          <input type="text" id="edit-stop-name-input" class="apple-input-text" placeholder="Nome da parada">
+
+          <label class="edit-field-label" style="margin-top: 10px;">Endereço / Referência:</label>
+          <input type="text" id="edit-stop-address-input" class="apple-input-text" placeholder="Endereço" autocomplete="off" oninput="handleEditStopAddressInput(event)">
+          <div id="edit-stop-suggestions" class="place-suggestions-container" style="display: none; max-height: 150px; margin-top: 6px;"></div>
+
+          <label class="edit-field-label" style="margin-top: 10px;">Tempo de Parada / Descarga (minutos):</label>
+          <input type="number" id="edit-stop-duration-input" class="apple-input-text" min="5" max="360" value="30">
+        </div>
+
+        <div class="modal-actions" style="margin-top: 16px;">
+          <button class="btn-capsule-giant btn-secondary" onclick="closeEditStopModal()">Cancelar</button>
+          <button class="btn-capsule-giant btn-green" onclick="saveEditedStop()">Salvar Alterações</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gaveta de Itinerário Completo & Editável -->
+    <div class="itinerary-drawer" id="itinerary-drawer">
+      <div class="drawer-header">
+        <div>
+          <h2>Itinerário da Jornada</h2>
+          <small id="drawer-itinerary-stats" style="color: #86868B; font-size: 12px;">0 paradas planejadas</small>
+        </div>
+        <button class="capsule-icon-button" style="width: 40px; height: 40px;" onclick="toggleDrawer()">✕</button>
+      </div>
+
+      <!-- Cartão de Ponto de Partida -->
+      <div class="drawer-start-point-box">
+        <div class="drawer-start-point-info">
+          <span style="font-size: 20px;">🏠</span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #86868B; font-weight: 700; letter-spacing: 0.5px;">Ponto de Partida (Origem)</div>
+            <strong id="drawer-start-name" style="display: block; font-size: 14px; color: #F5F5F7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Garagem / Base Principal</strong>
+            <small id="drawer-start-address" style="display: block; font-size: 12px; color: #86868B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Defina onde a rota começa</small>
+          </div>
+        </div>
+        <div class="drawer-start-actions">
+          <button class="btn-drawer-subaction" onclick="openManualAddressModal('set_start')">✏️ Alterar Partida</button>
+          <button class="btn-drawer-subaction" onclick="useCurrentGpsAsStart()">📡 Meu GPS</button>
+        </div>
+      </div>
+
+      <!-- Lista de Paradas Editáveis -->
+      <div class="drawer-list" id="drawer-stops-list">
+        <!-- Renderizado dinamicamente via app.js -->
+      </div>
+
+      <!-- Barra Inferior de Ações da Gaveta -->
+      <div class="drawer-footer-actions">
+        <button class="btn-capsule-giant btn-green" onclick="openManualAddressModal('add_stop')">
+          ➕ Adicionar Nova Parada
+        </button>
+        
+        <div class="drawer-recalc-grid">
+          <button class="btn-capsule-small btn-secondary" onclick="recalculateCurrentRoute(true)" title="Recalcula tempo e traçado mantendo a ordem exata das paradas">
+            🔄 Recalcular (Manter Ordem)
+          </button>
+          <button class="btn-capsule-small btn-secondary" onclick="recalculateCurrentRoute(false)" title="Reordena automaticamente pelo melhor caminho matemático com IA">
+            ⚡ Otimizar Sequência (IA)
+          </button>
+        </div>
+
+        <button class="btn-link" style="color: var(--color-coral-red); padding: 8px;" onclick="clearActiveRoute()">
+          🗑️ Limpar Roteiro Completo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/static/js/offline_store.js"></script>
+  <script src="/static/js/voice_tts.js"></script>
+  <script src="/static/js/map_engine.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

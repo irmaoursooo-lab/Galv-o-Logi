@@ -1,0 +1,1448 @@
+/* ==========================================================================
+   GALVÃO LOGI — APPLE INDUSTRIAL DESIGN SYSTEM (ANTI-IA SLOP)
+   Inspirado no Apple CarPlay, macOS Sonoma e apple.com
+   ========================================================================== */
+
+:root {
+  --color-bg-deep-space: #0A0A0C;
+  --color-surface-elevated: rgba(28, 28, 30, 0.82);
+  --color-surface-hover: rgba(44, 44, 46, 0.90);
+  --color-surface-card: #1C1C1E;
+  --color-hairline: rgba(255, 255, 255, 0.12);
+  --color-hairline-light: rgba(255, 255, 255, 0.06);
+
+  --color-system-green: #30D158;
+  --color-system-green-glow: rgba(48, 209, 88, 0.20);
+  --color-navigation-blue: #0071E3;
+  --color-amber-caution: #FF9F0A;
+  --color-coral-red: #FF453A;
+
+  --color-text-primary: #F5F5F7;
+  --color-text-secondary: #86868B;
+  --color-text-tertiary: #6E6E73;
+
+  --font-family-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  
+  --radius-capsule: 100px;
+  --radius-card: 22px;
+  --radius-modal: 28px;
+
+  --shadow-apple: 0 16px 36px rgba(0, 0, 0, 0.45);
+  --blur-frosted: blur(24px) saturate(180%);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+body {
+  background-color: var(--color-bg-deep-space);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-system);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Container Principal em Tela Cheia */
+#app-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Camada do Mapa de Navegação */
+#map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: #121214;
+}
+
+/* Barra Superior do Cockpit (Apple HUD Top Island) */
+.cockpit-top-island {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.cockpit-card-top {
+  pointer-events: auto;
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-card);
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-apple);
+  max-width: 540px;
+}
+
+.status-dot-green {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--color-system-green);
+  box-shadow: 0 0 10px var(--color-system-green-glow);
+  flex-shrink: 0;
+}
+
+.next-stop-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.next-stop-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--color-text-primary);
+}
+
+.next-stop-address {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.next-stop-eta {
+  margin-left: auto;
+  text-align: right;
+}
+
+.eta-time {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-system-green);
+  letter-spacing: -0.5px;
+}
+
+.eta-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Indicador de Status Offline / Online */
+.connection-pill {
+  pointer-events: auto;
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-capsule);
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-apple);
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-system-green);
+}
+
+.indicator-dot.offline {
+  background-color: var(--color-amber-caution);
+}
+
+/* Barra Lateral de Controles Rápidos (Desktop & Tablet) - Reescala com Proteção Total contra Sobreposição */
+.cockpit-side-panel {
+  position: absolute;
+  top: 66px;
+  right: 14px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cockpit-side-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.capsule-icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: var(--shadow-apple);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.capsule-icon-button:active {
+  transform: scale(0.92);
+  background: var(--color-surface-hover);
+}
+
+/* Alerta de Roteamento / Trânsito (HUD Banner Flutuante) */
+.reroute-banner {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-card);
+  padding: 18px 24px;
+  box-shadow: var(--shadow-apple);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 380px;
+  max-width: 90vw;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.reroute-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reroute-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.time-saved-badge {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-system-green);
+  letter-spacing: -0.5px;
+}
+
+.reroute-actions {
+  display: flex;
+  gap: 14px;
+}
+
+/* Botões Estilo Cápsula Gigantes (Touch Targets >= 64dp para Luvas) */
+.btn-capsule-giant {
+  flex: 1;
+  min-height: 64px;
+  border-radius: var(--radius-capsule);
+  font-size: 17px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.btn-capsule-giant:active {
+  transform: scale(0.96);
+}
+
+.btn-green {
+  background-color: var(--color-system-green);
+  color: #000000;
+}
+
+.btn-green:hover {
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--color-text-primary);
+  border: 0.5px solid var(--color-hairline);
+}
+
+.btn-caption {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Barra Inferior Principal (Cockpit Bottom Bar) */
+.cockpit-bottom-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.cockpit-summary-card {
+  pointer-events: auto;
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-card);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: var(--shadow-apple);
+}
+
+.summary-metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.quick-action-cluster {
+  pointer-events: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.btn-report-slow {
+  min-height: 50px;
+  padding: 0 20px;
+  border-radius: var(--radius-capsule);
+  background-color: rgba(255, 159, 10, 0.20);
+  color: var(--color-amber-caution);
+  border: 0.5px solid var(--color-amber-caution);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.1s ease;
+}
+
+.btn-report-slow:active {
+  transform: scale(0.95);
+}
+
+/* Modal Rápido de 2 Toques (Recebimento Lento) */
+.apple-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.apple-modal-sheet {
+  background: #1C1C1E;
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-modal);
+  padding: 28px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: var(--shadow-apple);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-header-title {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.modal-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.delay-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.btn-delay-choice {
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.btn-delay-choice:hover, .btn-delay-choice.selected {
+  background: var(--color-amber-caution);
+  color: #000;
+  border-color: var(--color-amber-caution);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* Gaveta Lateral de Itinerário Completo */
+.itinerary-drawer {
+  position: fixed;
+  top: 0;
+  left: -420px;
+  width: 400px;
+  height: 100vh;
+  z-index: 500;
+  background: rgba(24, 24, 26, 0.94);
+  backdrop-filter: var(--blur-frosted);
+  border-right: 0.5px solid var(--color-hairline);
+  box-shadow: var(--shadow-apple);
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.itinerary-drawer.open {
+  left: 0;
+}
+
+.drawer-header {
+  padding: 24px;
+  border-bottom: 0.5px solid var(--color-hairline);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.itinerary-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid var(--color-hairline-light);
+  border-radius: 18px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itinerary-item.slow-dock {
+  border-left: 4px solid var(--color-amber-caution);
+}
+
+.itinerary-item.meal-break {
+  border-left: 4px solid var(--color-system-green);
+}
+
+/* Estilos para Seleção de Região & Meu GPS */
+.region-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.btn-region-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-region-choice:hover, .btn-region-choice:active {
+  background: rgba(255, 255, 255, 0.14);
+  transform: scale(0.99);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.region-icon {
+  font-size: 24px;
+}
+
+.region-text strong {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.region-text small {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* Toast HUD de Feedback Rápido */
+.cockpit-toast {
+  position: fixed;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(30, 30, 32, 0.92);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  padding: 10px 22px;
+  border-radius: var(--radius-capsule);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-apple);
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cockpit-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Indicador de botão mutado */
+.capsule-icon-button.muted {
+  background: rgba(255, 69, 58, 0.25) !important;
+  border-color: rgba(255, 69, 58, 0.5) !important;
+  color: var(--color-coral-red) !important;
+}
+
+/* Card de Boas-Vindas / Cockpit Inicial (Sem Rota Automática Não Solicitada) */
+.cockpit-welcome-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-surface-elevated);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: var(--radius-modal);
+  padding: 32px;
+  width: 90%;
+  max-width: 520px;
+  z-index: 90;
+  box-shadow: var(--shadow-apple);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.welcome-icon {
+  font-size: 40px;
+}
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.welcome-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.welcome-footer {
+  text-align: center;
+  margin-top: 4px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-navigation-blue);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 6px;
+}
+
+/* Badge de Proteção de Privacidade e Sigilo Fiscal LGPD */
+.privacy-notice-badge {
+  background: rgba(48, 209, 88, 0.12);
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #30D158;
+  line-height: 1.4;
+}
+
+/* Área de Disparo de Upload / Foto da Câmera */
+.upload-trigger-area {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.upload-trigger-area:hover {
+  border-color: var(--color-navigation-blue);
+  background: rgba(0, 113, 227, 0.08);
+}
+
+.upload-trigger-area strong {
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.upload-trigger-area small {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Textarea Apple Minimalista */
+.apple-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-hairline);
+  border-radius: 16px;
+  padding: 14px;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-system);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.apple-textarea:focus {
+  border-color: var(--color-navigation-blue);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.3);
+}
+
+/* Container de Destinos Lidos no OCR */
+.scanned-destinations-container {
+  max-height: 180px;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border: 0.5px solid var(--color-hairline);
+}
+
+.scanned-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 0.5px solid var(--color-hairline-light);
+  font-size: 13px;
+}
+
+.scanned-item:last-child {
+  border-bottom: none;
+}
+
+.scanned-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.scanned-item-text strong {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scanned-item-text small {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-remove-scanned {
+  background: rgba(255, 69, 58, 0.15);
+  border: 0.5px solid rgba(255, 69, 58, 0.4);
+  color: var(--color-coral-red);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ========================================================
+ * ABAS DO MODAL DE ENDEREÇOS (AUTOCOMPLETE & LOTE)
+ * ======================================================== */
+.modal-tab-bar {
+  display: flex;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.modal-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-tab-btn.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* CAMPO DE BUSCA EM TEMPO REAL */
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.search-input-wrapper .search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 16px;
+  color: #86868B;
+  pointer-events: none;
+}
+
+.apple-input-search {
+  width: 100%;
+  padding: 14px 40px 14px 44px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: 16px;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.apple-input-search:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--color-navigation-blue);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
+}
+
+.btn-clear-input {
+  position: absolute;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* LISTA DE SUGESTÕES EM TEMPO REAL (TIPO GOOGLE MAPS / WAZE) */
+.place-suggestions-container {
+  margin-top: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 0.5px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+}
+
+.place-suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--color-hairline-light);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.place-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.place-suggestion-item:hover, .place-suggestion-item:active, .place-suggestion-item.highlighted {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.place-suggestion-quick-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-suggestion-action {
+  background: rgba(255, 255, 255, 0.10);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-suggestion-action:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.btn-suggestion-action.btn-action-green {
+  background: rgba(48, 209, 88, 0.18);
+  color: #30D158;
+  border-color: rgba(48, 209, 88, 0.4);
+}
+
+.btn-suggestion-action.btn-action-green:hover {
+  background: rgba(48, 209, 88, 0.35);
+}
+
+.place-suggestion-icon {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.place-suggestion-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-suggestion-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.place-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 113, 227, 0.2);
+  color: #2997FF;
+  text-transform: uppercase;
+}
+
+.place-suggestion-sub {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 3px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* CARTÃO DE LOCAL SELECIONADO */
+.selected-place-preview {
+  margin-top: 12px;
+  background: rgba(48, 209, 88, 0.08);
+  border: 0.5px solid rgba(48, 209, 88, 0.35);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selected-place-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selected-place-icon {
+  font-size: 24px;
+}
+
+.selected-place-info strong {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.selected-place-info small {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.selected-place-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-capsule-small {
+  padding: 8px 14px;
+  border-radius: var(--radius-capsule);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.btn-capsule-small:active {
+  transform: scale(0.96);
+}
+
+.btn-capsule-small.btn-green {
+  background-color: var(--color-system-green);
+  color: #000;
+}
+
+.btn-capsule-small.btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+}
+
+/* ========================================================
+ * GAVETA DE ITINERÁRIO EDITÁVEL & PONTO DE PARTIDA
+ * ======================================================== */
+.drawer-start-point-box {
+  margin: 12px 20px 6px 20px;
+  background: rgba(0, 113, 227, 0.12);
+  border: 0.5px solid rgba(0, 113, 227, 0.35);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer-start-point-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawer-start-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-drawer-subaction {
+  background: rgba(255, 255, 255, 0.10);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-drawer-subaction:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* BARRA DE FERRAMENTAS DE PARADA (SUBIR, DESCER, EDITAR, EXCLUIR) */
+.itinerary-stop-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--color-hairline-light);
+}
+
+.itinerary-stop-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-stop-tool {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-stop-tool:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-stop-tool:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-stop-tool.btn-tool-delete {
+  color: var(--color-coral-red);
+  background: rgba(255, 69, 58, 0.12);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.btn-stop-tool.btn-tool-delete:hover {
+  background: rgba(255, 69, 58, 0.25);
+}
+
+.drawer-footer-actions {
+  padding: 16px 20px;
+  border-top: 0.5px solid var(--color-hairline);
+  background: rgba(20, 20, 22, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer-recalc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* CAMPOS DE FORMULÁRIO DO MODAL DE EDIÇÃO */
+.apple-input-text {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+
+.apple-input-text:focus {
+  border-color: var(--color-navigation-blue);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.3);
+}
+
+.edit-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* ============================================================
+   NAVEGAÇÃO EM TEMPO REAL — APPLE COCKPIT HUD & PROGRESS BAR
+   ============================================================ */
+
+/* Botão de Destaque "Iniciar Navegação" */
+.btn-start-navigation {
+  min-height: 50px;
+  padding: 0 20px;
+  border-radius: var(--radius-capsule);
+  background: linear-gradient(135deg, #30D158 0%, #248A3D 100%);
+  color: #FFFFFF;
+  border: 0.5px solid rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(48, 209, 88, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  pointer-events: auto;
+}
+
+.btn-start-navigation:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(48, 209, 88, 0.45);
+}
+
+.btn-start-navigation:active {
+  transform: scale(0.95);
+}
+
+.btn-start-navigation.navigating {
+  background: linear-gradient(135deg, #0071E3 0%, #0056B3 100%);
+  box-shadow: 0 4px 18px rgba(0, 113, 227, 0.35);
+}
+
+/* HUD Flutuante de Navegação e Barra de Progresso */
+.navigation-hud-bar {
+  position: absolute;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  width: 92%;
+  max-width: 580px;
+  background: rgba(28, 28, 30, 0.88);
+  backdrop-filter: var(--blur-frosted);
+  -webkit-backdrop-filter: var(--blur-frosted);
+  border: 0.5px solid var(--color-hairline);
+  border-radius: 20px;
+  padding: 14px 18px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.nav-hud-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.nav-pulse-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-system-green);
+  box-shadow: 0 0 0 rgba(48, 209, 88, 0.4);
+  animation: navPulse 1.8s infinite;
+}
+
+@keyframes navPulse {
+  0% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(48, 209, 88, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+}
+
+.nav-pulse-dot.paused {
+  background-color: var(--color-amber-caution);
+  animation: none;
+}
+
+.nav-eta-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 0.5px solid var(--color-hairline);
+}
+
+#nav-eta-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+#nav-eta-remaining {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* Barra de Progresso Cupertino */
+.nav-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.nav-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #30D158 0%, #34C759 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.6);
+}
+
+.nav-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+#nav-progress-percent {
+  color: var(--color-system-green);
+}
+
+/* Cluster de Controles Rápidos da Navegação */
+.nav-controls-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-nav-control {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--color-hairline);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn-nav-control:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn-nav-control:active {
+  transform: scale(0.95);
+}
+
+.btn-nav-stop {
+  color: var(--color-coral-red);
+  background: rgba(255, 69, 58, 0.15);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.btn-nav-stop:hover {
+  background: rgba(255, 69, 58, 0.25);
+}
+
+/* Marcador Animado do Caminhão na Navegação */
+.truck-navigation-marker {
+  transition: transform 0.2s linear;
+}
+
+.truck-marker-container {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.truck-marker-pulse {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(48, 209, 88, 0.3);
+  animation: truckPulse 2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes truckPulse {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.truck-marker-body {
+  position: relative;
+  z-index: 2;
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0.3, 1);
+}
+
+/* Regras Responsivas para Proteção Total de Layout e Prevenção de Sobreposição */
+@media (max-height: 760px) {
+  .cockpit-side-panel {
+    top: 58px;
+    right: 12px;
+    gap: 3px;
+    max-height: calc(100vh - 105px);
+  }
+  .capsule-icon-button {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+}
+
+@media (max-height: 580px), (max-width: 600px) {
+  .cockpit-side-panel {
+    top: 48px;
+    right: 8px;
+    gap: 2px;
+    padding: 1px;
+    max-height: calc(100vh - 85px);
+  }
+  .capsule-icon-button {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+  .navigation-hud-bar {
+    bottom: 74px;
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .btn-start-navigation, .btn-report-slow {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 440px) {
+  .cockpit-side-panel {
+    top: 42px;
+    right: 6px;
+    gap: 2px;
+    max-height: calc(100vh - 70px);
+  }
+  .capsule-icon-button {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+}
+
+
